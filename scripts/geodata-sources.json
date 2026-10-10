@@ -1,0 +1,82 @@
+{
+  "blocks.zip": {
+    "url": "https://www2.census.gov/geo/tiger/TIGER2020/TABBLOCK20/tl_2020_06_tabblock20.zip",
+    "sha256": "154ffb979e4d1f8cae4ff2676cbba9030ef39a92d4620644bc8aa7f7be2ad85f",
+    "bytes": 382375859
+  },
+  "places.zip": {
+    "url": "https://www2.census.gov/geo/tiger/TIGER2025/PLACE/tl_2025_06_place.zip",
+    "sha256": "2b59dc5d54c69c7a451795401fc2a1c1c68b172f1d912d3486080e04a83e23e8",
+    "bytes": 9885068
+  },
+  "pl2020.zip": {
+    "url": "https://www2.census.gov/programs-surveys/decennial/2020/data/01-Redistricting_File--PL_94-171/California/ca2020.pl.zip",
+    "sha256": "e02c83c85a9a5d69ded4bf0d4c8ebe3f4bcd2d8e5911db765e9e42915ad1f753",
+    "bytes": 79627235
+  },
+  "adjusted.zip": {
+    "url": "https://statewidedatabase.org/pub/data/D20/PL94/state/state_PL94_2020_Adjusted_P24_DOJ_Block_csv.zip",
+    "sha256": "d531cee8abab915a2149dd0a9f9029910b5904abdcb0af1aa3a6c266da247be5",
+    "bytes": 15169614
+  },
+  "g16-votes.zip": {
+    "url": "https://statewidedatabase.org/pub/data/D20/SOV/g16/state/state_g16_SOV_by_2020_Blocks_csv.zip",
+    "sha256": "5319349d78e3f655fc266157abf4051be609c20bcafff44edf09c717d296dd7e",
+    "bytes": 14910647
+  },
+  "g16-codebook.csv": {
+    "url": "https://statewidedatabase.org/pub/data/D20/SOV/codebooks/g16_sov_codebook.csv",
+    "sha256": "1ccd17ff81ba1fb51e0eeb2fdc53deebd051832243f55d673f311a34baa1f2a4",
+    "bytes": 34876
+  },
+  "g18-votes.zip": {
+    "url": "https://statewidedatabase.org/pub/data/D20/SOV/g18/state/state_g18_SOV_by_2020_Blocks_csv.zip",
+    "sha256": "238d407fe4e7f9089a7861a797a36fbaf2b1259d0e78b1649a94f3c23db711bb",
+    "bytes": 15136732
+  },
+  "g18-codebook.csv": {
+    "url": "https://statewidedatabase.org/pub/data/D20/SOV/codebooks/g18_sov_codebook.csv",
+    "sha256": "b0d119c07c0564172a6f9558cb73a0d25d8fec3067346728fc0a1ad4bf7259b2",
+    "bytes": 33547
+  },
+  "g20-votes.zip": {
+    "url": "https://statewidedatabase.org/pub/data/D20/SOV/g20/state/state_g20_SOV_by_2020_Blocks_csv.zip",
+    "sha256": "e269ee28024bb5bca3dc758ce0e61c5f7fdbbd50f19b503a42e32a43ec3ebd30",
+    "bytes": 12263726
+  },
+  "g20-codebook.csv": {
+    "url": "https://statewidedatabase.org/pub/data/D20/SOV/codebooks/g20_sov_codebook.csv",
+    "sha256": "0a12212d63aabac7e4181a8b3b7fd907ada85be74d76f117ea534d39d471c238",
+    "bytes": 35572
+  },
+  "g22-votes.zip": {
+    "url": "https://statewidedatabase.org/pub/data/G22/state/state_g22_sov_data_by_g22_srprec.zip",
+    "sha256": "e1cf79cea43f8c117cd81c4ce74a9ad51ae7b6b9e5f30615bc582140512af249",
+    "bytes": 6506802
+  },
+  "g22-block-map.csv": {
+    "url": "https://statewidedatabase.org/pub/data/G22/state/state_g22_sr_blk_map.csv",
+    "sha256": "c9c906dc4bed6e96219f57c4f759bb11401aa8ade70658320b3ad59d0cf2eb5f",
+    "bytes": 36448618
+  },
+  "g22-codebook.csv": {
+    "url": "https://statewidedatabase.org/pub/data/G22/G22_SOV_statewide_codebook.csv",
+    "sha256": "19c136218f9d2850f737787361e26aedb6ef6df33ac4dafa299b9f9c270c8c07",
+    "bytes": 14852
+  },
+  "g24-votes.zip": {
+    "url": "https://statewidedatabase.org/pub/data/G24/state/state_g24_sov_data_by_g24_srprec.zip",
+    "sha256": "d243f8484b3af6b06fce493b6f640ea443b241b66748b5946c7a7bea6a4e7d69",
+    "bytes": 1465942
+  },
+  "g24-block-map.csv": {
+    "url": "https://statewidedatabase.org/pub/data/G24/state/state_g24_sr_blk_map.csv",
+    "sha256": "2494fe02248dcbbeff86caf1009e86c79b6ad9fa781086f6c51d16821d0354de",
+    "bytes": 39722588
+  },
+  "g24-codebook.csv": {
+    "url": "https://statewidedatabase.org/pub/data/G24/G24_SOV_statewide_codebook.csv",
+    "sha256": "72a58a2522002ff1611ff7bdd205a917402345193f8b0991fd676dd1c9403c6f",
+    "bytes": 12976
+  }
+}

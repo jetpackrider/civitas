@@ -18,17 +18,27 @@ for y in ['22','24']:
  INPUTS[f'g{y}-votes.zip']=f'https://statewidedatabase.org/pub/data/G{y}/state/state_g{y}_sov_data_by_g{y}_srprec.zip'
  INPUTS[f'g{y}-block-map.csv']=f'https://statewidedatabase.org/pub/data/G{y}/state/state_g{y}_sr_blk_map.csv'
  INPUTS[f'g{y}-codebook.csv']=f'https://statewidedatabase.org/pub/data/G{y}/G{y}_SOV_statewide_codebook.csv'
+LOCK=json.loads((ROOT/'scripts/geodata-sources.json').read_text())
+assert set(LOCK)==set(INPUTS),'Update the source lock when changing public inputs'
+def verify(path,name,url):
+ expected=LOCK[name]
+ with path.open('rb') as source:digest=hashlib.file_digest(source,'sha256').hexdigest()
+ if expected['url']!=url or expected['sha256']!=digest or expected['bytes']!=path.stat().st_size:
+  raise ValueError('Source checksum mismatch: '+name+'. Review the source change before updating geodata-sources.json.')
+ return {'url':url,'sha256':digest,'bytes':path.stat().st_size}
 def fetch(item):
  name,url=item;p=CACHE/name
  if not p.exists():
   partial=p.with_suffix(p.suffix+'.part')
-  r=requests.get(url,stream=True,timeout=180);r.raise_for_status()
-  with partial.open('wb') as f:
-   for chunk in r.iter_content(1024*1024):f.write(chunk)
+  with requests.get(url,stream=True,timeout=180) as r:
+   r.raise_for_status()
+   with partial.open('wb') as f:
+    for chunk in r.iter_content(1024*1024):f.write(chunk)
+  verify(partial,name,url)
   os.replace(partial,p)
- digest=hashlib.file_digest(p.open('rb'),'sha256').hexdigest()
+ result=verify(p,name,url)
  print(name,p.stat().st_size,flush=True)
- return name,{'url':url,'sha256':digest,'bytes':p.stat().st_size}
+ return name,result
 if __name__=='__main__':
  with ThreadPoolExecutor(max_workers=4) as pool:result=dict(pool.map(fetch,INPUTS.items()))
- (CACHE/'sources.json').write_text(json.dumps(result,indent=2)+'\n')
+ temporary=CACHE/'sources.json.tmp';temporary.write_text(json.dumps(result,indent=2)+'\n');temporary.replace(CACHE/'sources.json')

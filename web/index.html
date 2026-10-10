@@ -5637,6 +5637,11 @@ html, body {
   }
 
   function importMapFile(file) {
+    // Statewide maps can contain over a million block-piece assignments.
+    if (file.size > 128 * 1024 * 1024) {
+      alert('That map file exceeds the 128 MiB import limit.');
+      return;
+    }
     var reader = new FileReader();
     reader.onload = async function() {
       var doc;

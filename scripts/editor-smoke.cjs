@@ -1,14 +1,11 @@
 // Real worker, Canvas and IndexedDB integration; all maps live in an isolated profile.
 const assert=require('node:assert/strict');
-const fs=require('node:fs/promises');
-const os=require('node:os');
-const path=require('node:path');
 const {_electron:electron}=require('playwright');
+const {prepare}=require('./test-environment.cjs');
 (async()=>{
- const profile=await fs.mkdtemp(path.join(os.tmpdir(),'civitas-editor-'));
+ const {profile,env,cleanup}=await prepare('editor');
  let app;const errors=[];
  try {
-  const env={...process.env,CIVITAS_TEST_HIDE_WINDOW:'1'};delete env.ELECTRON_RUN_AS_NODE;
   app=await electron.launch({args:['.',`--user-data-dir=${profile}`],env,timeout:60000});
   await app.context().route('https://**',route=>route.abort());
   app.context().setDefaultTimeout(120000);
@@ -72,6 +69,6 @@ const {_electron:electron}=require('playwright');
   console.log('PASS: real block worker, split totals, grouping, native history, deletion, transactional saves and restores, both geographies, offline.');
  }finally {
   if(app){await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().forEach(w=>w.destroy()));await app.close();}
-  await fs.rm(profile,{recursive:true,force:true});
+  await cleanup();
  }
 })().catch(e=>{console.error(e);process.exitCode=1;});

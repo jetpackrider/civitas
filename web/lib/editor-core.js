@@ -51,9 +51,12 @@
     apply(state,command,direction) {
       const result = copy(state);
       for (const c of command.changes) {
-        result[c.section] ||= {};
-        if (c[direction] === null) delete result[c.section][c.key];
-        else result[c.section][c.key] = copy(c[direction]);
+        // Restored commands must never resolve inherited sections or invoke setters.
+        if (!Object.hasOwn(result,c.section)) continue;
+        const section = result[c.section];
+        if (!section || typeof section !== 'object' || Array.isArray(section)) continue;
+        if (c[direction] === null) delete section[c.key];
+        else Object.defineProperty(section,c.key,{value:copy(c[direction]),writable:true,enumerable:true,configurable:true});
       }
       return result;
     }

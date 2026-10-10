@@ -25,10 +25,12 @@ RACE_PREFIX={'president':'PRS','senate':'USS','governor':'GOV','lieutenant-gover
 def write_json(path,value,compressed=False):
  path.parent.mkdir(parents=True,exist_ok=True)
  text=json.dumps(value,separators=(',',':'),allow_nan=False).encode()
+ temporary=path.with_name(path.name+'.tmp')
  if compressed:
-  with path.open('wb') as raw:
+  with temporary.open('wb') as raw:
    with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0) as f:f.write(text)
- else:path.write_bytes(text)
+ else:temporary.write_bytes(text)
+ temporary.replace(path)
 
 def allocate(total,weights):
  total=int(round(total));w=np.maximum(np.asarray(weights,dtype=float),0);s=w.sum()

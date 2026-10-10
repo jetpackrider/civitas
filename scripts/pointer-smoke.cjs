@@ -1,11 +1,10 @@
 // Exercise real canvas pointer events in a disposable Electron profile.
 const assert=require('node:assert/strict');
-const fs=require('node:fs/promises'),os=require('node:os'),path=require('node:path');
 const {_electron:electron}=require('playwright');
+const {prepare}=require('./test-environment.cjs');
 (async()=>{
- const profile=await fs.mkdtemp(path.join(os.tmpdir(),'civitas-pointer-'));let app;
+ const {profile,env,cleanup}=await prepare('pointer');let app;
  try {
-  const env={...process.env,CIVITAS_TEST_HIDE_WINDOW:'1'};delete env.ELECTRON_RUN_AS_NODE;
   app=await electron.launch({args:['.',`--user-data-dir=${profile}`],env,timeout:60000});
   await app.context().route('https://**',r=>r.abort());
   const page=await app.firstWindow(),errors=[];
@@ -80,6 +79,6 @@ const {_electron:electron}=require('playwright');
   assert.deepEqual(errors,[]);console.log('PASS: canvas clicks paint parents, open blocks without Paint, split and undo; deep zoom preserves its cursor anchor and aspect ratio, both geographies.');
  } finally {
   if(app){await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().forEach(w=>w.destroy()));await app.close();}
-  await fs.rm(profile,{recursive:true,force:true});
+  await cleanup();
  }
 })().catch(e=>{console.error(e);process.exitCode=1;});

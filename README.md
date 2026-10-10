@@ -4,23 +4,21 @@ ElectionCord Civitas desktop source, California data and local release artifacts
 
 ## Develop and verify
 
-Use `npm ci` and `npm start`. Run `npm test`, `npm run test:smoke`, `npm run test:editor` and `npm run test:pointer`. Electron checks use temporary profiles and do not touch saved user maps. See [the editor guide](docs/EDITOR.md) for tools, history, migration and data methods.
+Use the Node/Python versions in `.node-version` and `.python-version`, run `npm run setup`, then `npm start`. `npm run check` runs the complete local check suite. Run `npm test`, `npm run test:smoke`, `npm run test:editor` and `npm run test:pointer`. Electron checks use hidden windows, temporary profiles and a committed offline Alpine fixture; they do not touch saved user maps. CI runs core/data checks on Linux and desktop checks on macOS/Windows. See [the workflow guide](docs/WORKFLOW.md) for branches, parallel work and release gates. See [the editor guide](docs/EDITOR.md) for tools, history, migration and data methods.
 
-Rebuild the geodata with Python 3.14:
+Rebuild the geodata after setup:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r scripts/geodata-requirements.txt
 npm run data:fetch
 npm run data:build
 npm run data:validate
 ```
 
-Downloaded inputs and intermediate tables live in `.cache/geodata/`. Bundled output lives in `web/data/block-v1/`, including source URLs/checksums and county allocation audits. The builder resumes counties matching its build revision. Keep an incomplete dataset out of release packages; the final manifest must contain all 58 counties and 39,538,223 original Census residents.
+Downloaded inputs and intermediate tables live in `.cache/geodata/`. Bundled output lives in `web/data/block-v1/`, including source URLs/checksums and county allocation audits. Public inputs are checked against `scripts/geodata-sources.json`. The builder resumes counties matching its build revision. Keep an incomplete dataset out of release packages; the final manifest must contain all 58 counties and 39,538,223 original Census residents.
 
 ## Package
 
-`npm run dist:mac` builds Apple Silicon and Intel DMG/ZIP files. `npm run dist:win` builds a Windows x64 ZIP. Artifacts are local and unsigned/ad-hoc signed; these commands do not publish.
+Packaging requires the full dataset and a matching validation certificate from `npm run data:validate`. `npm run data:check` verifies it. `npm run dist:mac` builds Apple Silicon and Intel DMG/ZIP files. `npm run dist:win` builds a Windows x64 ZIP. Artifacts are local and unsigned/ad-hoc signed; these commands do not publish. Run `npm run release:checksums` to record artifact hashes.
 
 ## Folder layout
 

@@ -171,7 +171,17 @@
     async function validateSnapshot(state) {
       if(!Number.isInteger(state.meta.count)||state.meta.count<0||state.meta.count>1000)throw new Error('Invalid district count');
       if(!['census','adjusted'].includes(state.meta.basis))throw new Error('Invalid population basis');
-      for(const id of Object.keys(state.assignments))if(!index[id])throw new Error('Unknown map unit: '+id);
+      for(const [section,values] of [['names',state.names],['locked',state.locked]]) {
+        if(!values||typeof values!=='object'||Array.isArray(values))throw new Error('Invalid district '+section);
+        const keys=Object.keys(values);
+        if(keys.length>state.meta.count)throw new Error('Invalid district '+section+' count');
+        for(const key of keys) {
+          const district=Number(key),value=values[key];
+          if(!Number.isInteger(district)||district<1||district>state.meta.count||String(district)!==key)throw new Error('Invalid district '+section+' key');
+          if(section==='names'?(typeof value!=='string'||value.length>40):typeof value!=='boolean')throw new Error('Invalid district '+section+' value');
+        }
+      }
+      for(const id of Object.keys(state.assignments))if(!Object.hasOwn(index,id))throw new Error('Unknown map unit: '+id);
       await ensure(Object.entries(state.assignments).filter(([,v])=>Object.keys(v.overrides||{}).length).map(([id])=>id));
       // Validate the entire state before mutating any assignment.
       for(const p of parents) {
@@ -209,7 +219,7 @@
       if(payload.version&&payload.version>2)throw new Error('Unsupported map version');
       if(payload.dataset&&payload.dataset!==bridge.dataset())throw new Error('This map uses an unavailable dataset.');
       const assignments=payload.unitAssignments||Object.fromEntries(Object.entries(payload.assignments||{}).map(([id,district])=>[id,{district,overrides:{}}]));
-      for(const id of Object.keys(assignments))if(!index[id])throw new Error('Map geography could not be matched: '+id);
+      for(const id of Object.keys(assignments))if(!Object.hasOwn(index,id))throw new Error('Map geography could not be matched: '+id);
       return {assignments,meta:{count:payload.count,mode:payload.mode||'by-district',name,basis:payload.populationBasis||'census'},names:payload.names||{},locked:payload.locked||{}};
     }
     async function restore(payload,name) {

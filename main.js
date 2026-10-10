@@ -12,7 +12,11 @@ const { pathToFileURL } = require('url');
 
 // Packaged: the page and data are copied next to the program (see "extraResources" in package.json).
 // Running from source (npm start): use the recovered web assets in this project.
-const WEB_ROOT = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(__dirname, 'web');
+// Fixture roots are allowed only in source-mode tests with disposable profiles.
+const TEST_WEB_ROOT = !app.isPackaged && process.env.CIVITAS_TEST_WEB_ROOT &&
+  process.env.CIVITAS_TEST_HIDE_WINDOW === '1' && process.argv.some(arg => arg.startsWith('--user-data-dir='));
+const WEB_ROOT = TEST_WEB_ROOT ? path.resolve(process.env.CIVITAS_TEST_WEB_ROOT) :
+  app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(__dirname, 'web');
 const INDEX = fs.existsSync(path.join(WEB_ROOT, 'index.html')) ? 'index.html' : 'ElectionCordCivitas.html';
 
 // The page loads one script from a CDN (polygon-clipping, which merges precincts into district outlines).
@@ -79,6 +83,8 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       backgroundThrottling: !HIDE_TEST_WINDOW,
+      // Native alert/confirm dialogs can surface even when their test window is hidden.
+      disableDialogs: HIDE_TEST_WINDOW,
     },
   });
   mainWindow.once('ready-to-show', () => { if (!HIDE_TEST_WINDOW) mainWindow.show(); });

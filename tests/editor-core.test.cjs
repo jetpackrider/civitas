@@ -13,6 +13,27 @@ test('session history is unlimited and persisted history preserves 15 steps each
  const restored=new History(h.persistent());assert.equal(restored.cursor,15);assert.equal(restored.commands.length,30);
  for(let i=0;i<15;i++)s=restored.redo(s);assert.equal(s.assignments.p.district,95);assert.equal(restored.canRedo,false);
 });
+test('restored history cannot write or delete inherited sections or change section prototypes',()=>{
+ const marker='civitasHistoryProbe';
+ const initial=state(1),prototype=Object.getPrototypeOf(initial.names);
+ const h=new History({commands:[{label:'Untrusted history',changes:[
+  {section:'__proto__',key:marker,before:null,after:{evil:1}},
+  {section:'constructor',key:marker,before:null,after:true},
+  {section:'missing',key:marker,before:null,after:true},
+  {section:'names',key:'__proto__',before:null,after:{evil:1}},
+  {section:'names',key:'1',before:null,after:'First'},
+ ]}],cursor:0});
+ const after=h.redo(initial);
+ assert.equal(Object.hasOwn(Object.prototype,marker),false);
+ assert.equal(Object.hasOwn(Object,marker),false);
+ assert.equal(Object.hasOwn(after,'missing'),false);
+ assert.equal(Object.getPrototypeOf(after.names),prototype);
+ assert.equal(Object.hasOwn(after.names,'__proto__'),true);
+ assert.equal(after.names[1],'First');
+ Object.defineProperty(Object.prototype,marker,{value:'Keep',configurable:true});
+ try {assert.deepEqual(h.undo(after),initial);assert.equal(Object.prototype[marker],'Keep');}
+ finally {delete Object.prototype[marker];}
+});
 test('allocation conserves integer totals, handles zero weights and has stable ties',()=>{
  assert.deepEqual(allocate(5,[1,1],['b','a']),[2,3]);assert.deepEqual(allocate(5,[0,0],['a','b']),[3,2]);
  for(let total=0;total<100;total++){const a=allocate(total,[0,3,8,2]);assert.equal(a.reduce((s,v)=>s+v,0),total);assert.ok(a.every(Number.isInteger));}
