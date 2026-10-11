@@ -1,7 +1,9 @@
 """Explicitly refresh the small offline fixture from a completed Alpine build."""
 from pathlib import Path
-import gzip,json,shutil
+import gzip,json,shutil,importlib.util
 import pandas as pd
+import pyogrio.raw
+from shapely import from_wkb,union_all
 ROOT=Path(__file__).resolve().parents[1]
 source=ROOT/'web/data/block-v1';target=ROOT/'tests/fixtures/block-v1'
 races=['president-2024','president-2020'];slug='alpine'
@@ -9,12 +11,14 @@ def read(p):return json.loads(p.read_text())
 def write(p,value):
  p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(value,separators=(',',':'),allow_nan=False))
 report=read(source/'reports/alpine.json');assert report['buildRevision']==3
+assert report.get('geometryRevision')==2
 doc=json.loads(gzip.decompress((source/'atoms/alpine.json.gz').read_bytes()))
 for atom in doc['atoms']:atom['votes']={key:value for key,value in atom['votes'].items() if key in races}
 (target/'atoms').mkdir(parents=True,exist_ok=True)
 with (target/'atoms/alpine.json.gz').open('wb') as raw:
  with gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0) as zipped:zipped.write(json.dumps(doc,separators=(',',':')).encode())
 report['elections']={key:value for key,value in report['elections'].items() if key in races}
+report['coverage'].pop('preservedNongeometrySha256',None) # Fixture retains only two races.
 write(target/'reports/alpine.json',report)
 manifest=read(source/'manifest.json')
 manifest.update(counties=[slug],population=report['population'],adjustedPopulation=report['adjustedPopulation'],blocks=report['blocks'],atoms=report['atoms'],fixture=True)
@@ -35,5 +39,9 @@ for geo in ['CA','CA-BG']:
  parent_ids[geo]=[record['county']+'|'+str(record['precinct']) for record in original]
 pop=pd.read_pickle(ROOT/'.cache/geodata/population.pkl')
 blocks=sorted({atom['block'] for atom in doc['atoms']})
-write(target/'source-counts.json',{'parentIds':parent_ids,'blocks':{bid:pop.loc[bid,['pop20','vap20','pop20Adjusted']].astype(int).tolist() for bid in blocks}})
+spec=importlib.util.spec_from_file_location('builder',ROOT/'scripts/build-block-data.py')
+builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+_,_,wkb,_=pyogrio.raw.read(ROOT/'.cache/geodata/blocks/tl_2020_06_tabblock20.shp',where="COUNTYFP20 = '003'",columns=['COUNTYFP20'])
+assert len(wkb)==report['blocks']
+write(target/'source-counts.json',{'parentIds':parent_ids,'blocks':{bid:pop.loc[bid,['pop20','vap20','pop20Adjusted']].astype(int).tolist() for bid in blocks},'sourceGeometry':builder.encode_polygons(union_all(from_wkb(wkb)))})
 print('Refreshed Alpine fixture with two audited presidential contests.')

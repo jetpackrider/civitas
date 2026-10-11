@@ -119,11 +119,19 @@
         }
       }
     }
-    at(x,y) {return [...(this.buckets.get(Math.floor(x/this.cell)+','+Math.floor(y/this.cell))||[]),...this.large].filter(r => x>=r.bbox[0]&&x<=r.bbox[2]&&y>=r.bbox[1]&&y<=r.bbox[3]);}
+    at(x,y) {
+      const bucket=this.buckets.get(Math.floor(x/this.cell)+','+Math.floor(y/this.cell));
+      const res=[];
+      if(bucket) for(let i=0;i<bucket.length;i++){const r=bucket[i];if(x>=r.bbox[0]&&x<=r.bbox[2]&&y>=r.bbox[1]&&y<=r.bbox[3])res.push(r);}
+      for(let i=0;i<this.large.length;i++){const r=this.large[i];if(x>=r.bbox[0]&&x<=r.bbox[2]&&y>=r.bbox[1]&&y<=r.bbox[3])res.push(r);}
+      return res;
+    }
     range(b) {
       const found=new Set(this.large),x0=Math.floor(b[0]/this.cell),x1=Math.floor(b[2]/this.cell),y0=Math.floor(b[1]/this.cell),y1=Math.floor(b[3]/this.cell);
-      for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)for(const r of this.buckets.get(x+','+y)||[])found.add(r);
-      return [...found].filter(r=>r.bbox[0]<=b[2]&&r.bbox[2]>=b[0]&&r.bbox[1]<=b[3]&&r.bbox[3]>=b[1]);
+      for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++){const bucket=this.buckets.get(x+','+y);if(bucket)for(let i=0;i<bucket.length;i++)found.add(bucket[i]);}
+      const res=[];
+      for(const r of found){if(r.bbox[0]<=b[2]&&r.bbox[2]>=b[0]&&r.bbox[1]<=b[3]&&r.bbox[3]>=b[1])res.push(r);}
+      return res;
     }
   }
   return {History,difference,allocate,aggregate,setElectionMargin,SpatialIndex,displayRing,copy};

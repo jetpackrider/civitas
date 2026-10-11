@@ -63,6 +63,19 @@ const {prepare}=require('./test-environment.cjs');
    await page.evaluate(({payload,name})=>CivitasApp.restore(name,payload),{payload,name:'Editor '+geography});
    assert.deepEqual(await page.evaluate(()=>CivitasApp.editor.snapshot()),state);
    assert.equal(await page.evaluate(()=>CivitasApp.getStats().totals.pop20),opened.total);
+   if(geography==='blockgroup') {
+    // Exercise the actual projection and JS polygon union, where independently
+    // rounded shared edges previously created hundreds of visible Alpine voids.
+    const wideHoles=await page.evaluate(async()=>{
+     const e=CivitasApp.editor;
+     for(const p of e.parents)await e.openBlocks(p);
+     const geometry=await e.unionGeometry(e.parents.flatMap(p=>p._children.flatMap(a=>a._polygons)));
+     const area=ring=>{const [x,y]=ring[0];return Math.abs(ring.reduce((sum,p,i)=>{const q=ring[(i+1)%ring.length];return sum+(p[0]-x)*(q[1]-y)-(q[0]-x)*(p[1]-y);},0))/2;};
+     const holes=geometry.flatMap(poly=>poly.slice(1)).filter(ring=>area(ring)>1e-10);
+     e.closeBlocks();return holes.length;
+    });
+    assert.equal(wideHoles,0,'Projected Alpine block coverage contains artificial voids');
+   }
    await page.click('#nav-home');
   }
   assert.deepEqual(errors,[]);

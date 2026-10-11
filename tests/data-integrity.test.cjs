@@ -12,7 +12,7 @@ test('release certificate detects changed data, new files and changed audit code
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const dataset = path.join(root, 'dataset');
   await fs.mkdir(dataset);await fs.mkdir(path.join(root, 'scripts'));
-  for (const file of ['validate-block-data.py', 'build-block-data.py', 'geodata-sources.json']) await fs.writeFile(path.join(root, 'scripts', file), 'audit-v1');
+  for (const file of ['validate-block-data.py', 'build-block-data.py', 'repair-block-geometry.py', 'geodata-sources.json']) await fs.writeFile(path.join(root, 'scripts', file), 'audit-v1');
   await fs.writeFile(path.join(dataset, 'manifest.json'), JSON.stringify({counties:Array.from({length:58},(_,i)=>`test-${i}`),population:39538223,blocks:519723}));
   await fs.writeFile(path.join(dataset, 'atoms.json'), 'original');
   await assert.rejects(integrity.check(dataset, root), /no validation certificate/);

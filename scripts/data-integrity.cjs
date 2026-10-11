@@ -31,7 +31,7 @@ async function requireStatewide(root) {
   return manifest;
 }
 async function sources(project) {
-  const names = ['scripts/validate-block-data.py', 'scripts/build-block-data.py', 'scripts/geodata-sources.json'];
+  const names = ['scripts/validate-block-data.py', 'scripts/build-block-data.py', 'scripts/repair-block-geometry.py', 'scripts/geodata-sources.json'];
   return Object.fromEntries(await Promise.all(names.map(async name => [name, await hash(path.join(project, name))])));
 }
 async function seal(root, project) {
