@@ -16,6 +16,7 @@
     "dist:mac:arm64": "electron-builder --mac --arm64 --publish never",
     "dist:mac:x64": "electron-builder --mac --x64 --publish never",
     "test:smoke": "node scripts/smoke-test.cjs",
+    "test:archive": "node scripts/smoke-test.cjs --archive",
     "test": "node scripts/unit-tests.cjs",
     "test:editor": "node scripts/editor-smoke.cjs",
     "test:pointer": "node scripts/pointer-smoke.cjs",
@@ -48,16 +49,8 @@
     "asar": true,
     "files": [
       "main.js",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "web",
-        "to": "web",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "package.json",
+      "web/**/*"
     ],
     "mac": {
       "category": "public.app-category.education",

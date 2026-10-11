@@ -20,6 +20,8 @@ Downloaded inputs and intermediate tables live in `.cache/geodata/`. Bundled out
 
 Packaging requires the full dataset and a matching validation certificate from `npm run data:validate`. `npm run data:check` verifies it. `npm run dist:mac` builds Apple Silicon and Intel DMG/ZIP files. `npm run dist:win` builds a Windows x64 ZIP. Artifacts are local and unsigned/ad-hoc signed; these commands do not publish. Run `npm run release:checksums` to record artifact hashes.
 
+Packaged builds keep the app and immutable map data in one `app.asar` archive, so Windows ZIP extraction does not create tens of thousands of individual map files. Extract the entire Windows ZIP before running `ElectionCord Civitas.exe`; keep the extracted runtime files together. `npm run test:archive` checks offline loading and saved-map reopen from that archive layout using the small fixture and an isolated profile.
+
 ## Folder layout
 
 - `main.js`, `web/`: runnable Electron app and bundled data.
