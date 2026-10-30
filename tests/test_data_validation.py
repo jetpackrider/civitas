@@ -25,5 +25,24 @@ class DataValidationTests(unittest.TestCase):
  def test_rejects_changed_parent_election_total(self):
   path=self.out/'CA/president-2024/votes-alpine.json';doc=json.loads(path.read_text())
   doc['records'][0]['dem']+=1;path.write_text(json.dumps(doc));self.rejected()
+ def test_rejects_overlapping_atom_geometry_without_count_changes(self):
+  path=self.out/'atoms/alpine.json.gz';doc=json.loads(gzip.decompress(path.read_bytes()))
+  visible=[a for a in doc['atoms'] if a['polygons']]
+  visible[1]['polygons']=visible[0]['polygons']
+  path.write_bytes(gzip.compress(json.dumps(doc).encode()));self.rejected()
+ def test_rejects_stale_parent_outline_without_count_changes(self):
+  path=self.out/'CA/geometry/precincts-alpine.json';doc=json.loads(path.read_text())
+  visible=[r for r in doc['records'] if r['d']]
+  visible[1]['d']=visible[0]['d'];path.write_text(json.dumps(doc));self.rejected()
+ def test_rejects_false_parent_hole_without_count_changes(self):
+  path=self.out/'CA-BG/geometry/precincts-alpine.json';doc=json.loads(path.read_text())
+  next(r for r in doc['records'] if r['d'])['d']+=' M 0,0 0,1 1,1 1,0 0,0 Z'
+  path.write_text(json.dumps(doc));self.rejected()
+ def test_parent_ring_comparison_ignores_order_and_start_but_keeps_winding(self):
+  original='M 0,0 2,0 2,2 0,2 0,0 Z M 1,1 1,1.5 1.5,1.5 1.5,1 1,1 Z'
+  rotated='M 1.5,1.5 1.5,1 1,1 1,1.5 1.5,1.5 Z M 2,2 0,2 0,0 2,0 2,2 Z'
+  self.assertEqual(validator.path_ring_signatures(original),validator.path_ring_signatures(rotated))
+  reversed_hole='M 0,0 2,0 2,2 0,2 0,0 Z M 1,1 1.5,1 1.5,1.5 1,1.5 1,1 Z'
+  self.assertNotEqual(validator.path_ring_signatures(original),validator.path_ring_signatures(reversed_hole))
 
 if __name__=='__main__':unittest.main()

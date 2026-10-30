@@ -2254,8 +2254,10 @@ html, body {
     var bucket=scale>0?Math.pow(2,Math.floor(Math.log2(scale))):null;
     if (s.displayPaths[lod] && s.displayScales[lod] === bucket) return s.displayPaths[lod];
     var path = new Path2D();
-    for (var r=0;r<s.rings.length;r++) {
-      var ring=s.rings[r];
+    // Merged block outlines (displayRings) are presentation only; picking and export use rings.
+    var rings=s.displayRings||s.rings;
+    for (var r=0;r<rings.length;r++) {
+      var ring=rings[r];
       if (!CivitasEditor.displayRing(ring,lod,bucket)) continue;
       addRingToPath(path,lod?decimateRing(ring,LOD_EPS[lod]):ring);
     }
@@ -2265,20 +2267,35 @@ html, body {
 
   function parseRings(d) {
     var rings = [];
-    var ringStrs = d.split(' Z');
-    for (var i = 0; i < ringStrs.length; i++) {
-      var s = ringStrs[i].trim();
-      if (!s) continue;
-      if (s.charAt(0) === 'M') s = s.slice(1).trim();
-      var parts = s.split(' ');
-      var ring = [];
-      for (var j = 0; j < parts.length; j++) {
-        var xy = parts[j].split(',');
-        if (xy.length !== 2) continue;
-        ring.push([parseFloat(xy[0]), parseFloat(xy[1])]);
+    var ring = [];
+    var len = d.length;
+    var i = 0;
+    while (i < len) {
+      var ch = d.charCodeAt(i);
+      if (ch <= 32 || ch === 77 || ch === 109) {
+        i++;
+        continue;
       }
-      if (ring.length) rings.push(ring);
+      if (ch === 90 || ch === 122) {
+        if (ring.length) {
+          rings.push(ring);
+          ring = [];
+        }
+        i++;
+        continue;
+      }
+      var startX = i;
+      while (i < len && d.charCodeAt(i) !== 44 && d.charCodeAt(i) > 32) i++;
+      if (startX === i) { i++; continue; }
+      var x = parseFloat(d.slice(startX, i));
+      if (i < len && d.charCodeAt(i) === 44) i++;
+      var startY = i;
+      while (i < len && d.charCodeAt(i) > 32 && d.charCodeAt(i) !== 90 && d.charCodeAt(i) !== 122) i++;
+      if (startY === i) { continue; }
+      var y = parseFloat(d.slice(startY, i));
+      if (!isNaN(x) && !isNaN(y)) ring.push([x, y]);
     }
+    if (ring.length) rings.push(ring);
     return rings;
   }
 
@@ -2414,8 +2431,9 @@ html, body {
     var provisional = geometryFromPolygons(polygons.flat());
     provisional.members=list.slice();provisional.sourceRings=list.map(function(s){return s.rings;});
     if (!editor || polygons.length < 2) return provisional;
-    provisional.pending = editor.unionGeometry(polygons).then(function(result) {
-      if (districtGeomCache[k] !== provisional) return;
+    provisional.pending = editor.unionGeometry(polygons, k).then(function(result) {
+      // A null result was superseded by a newer outline request for this district.
+      if (!result || districtGeomCache[k] !== provisional) return;
       districtGeomCache[k] = Object.assign(geometryFromPolygons(result),{members:provisional.members,sourceRings:provisional.sourceRings});
       anyBordersDirty = true;
       computeDistrictBorders(); draw();
@@ -3130,9 +3148,11 @@ html, body {
     }
     if (shapeAlpha < 1) { layered = true; ctx = beginShapeLayer(total, shapeTx, shapeTy); }
     ctx.lineWidth = SEAM_PLUG_WIDTH / cssScale;
+    var visibleShapes = [];
     for (var i = 0; i < shapes.length; i++) {
       var s = shapes[i], sb = s.bbox;
       if (sb[2] < vx0 || sb[0] > vx1 || sb[3] < vy0 || sb[1] > vy1) continue;
+      if (borderOn) visibleShapes.push(s);
       if (faintOn && s.fill === NODATA_FAINT_FILL) continue;
       if (s.districtId !== null && fillPaths[s.districtId] && !s.drawSelf && !isDimmed(s) && !showsUnit(s)) continue;
       var sp = displayPath(s, lod, cssScale);
@@ -3171,11 +3191,10 @@ html, body {
     if (borderOn) {
       ctx.lineWidth = borderBase / cssScale;
       ctx.strokeStyle = borderColor;
-      for (var b = 0; b < shapes.length; b++) {
-        var bs = shapes[b], bb = bs.bbox;
+      for (var b = 0; b < visibleShapes.length; b++) {
+        var bs = visibleShapes[b];
         if (bs.districtId !== null && !isDimmed(bs) && !showsUnit(bs)) continue;
         if (faintOn && bs.fill === NODATA_FAINT_FILL) continue;
-        if (bb[2] < vx0 || bb[0] > vx1 || bb[3] < vy0 || bb[1] > vy1) continue;
         ctx.stroke(displayPath(bs, lod, cssScale));
       }
     }
@@ -3741,6 +3760,7 @@ html, body {
     var panel = document.getElementById('district-sidebar');
     var rows = districtList.children;
     var widest = 0;
+    var range = document.createRange();
     for (var i = 0; i < rows.length; i++) {
       var row = rows[i];
       var rs = getComputedStyle(row);
@@ -3749,7 +3769,15 @@ html, body {
       for (var c = 0; c < row.children.length; c++) {
         var ch = row.children[c];
         var cs = getComputedStyle(ch);
-        var natural = ch.classList.contains('district-name') ? ch.scrollWidth : (ch.tagName === 'INPUT' ? Math.max(ch.offsetWidth, 150) : ch.offsetWidth);
+        var natural = 0;
+        if (ch.classList.contains('district-name')) {
+          range.selectNodeContents(ch);
+          natural = range.getBoundingClientRect().width;
+        } else if (ch.tagName === 'INPUT') {
+          natural = 150;
+        } else {
+          natural = ch.offsetWidth;
+        }
         w += natural + (parseFloat(cs.marginLeft) || 0) + (parseFloat(cs.marginRight) || 0);
       }
       w += gap * Math.max(0, row.children.length - 1);
@@ -4067,24 +4095,42 @@ html, body {
           for (var j = 0; j < recs.length; j++) {
             var g = recs[j];
             var b = g.bbox;
-            var s = {
-              paths: [null, null, null],
-              rings: parseRings(g.d),
-              fill: NODATA_FILL,
-              precinct: g.precinct,
-              county: g.county,
-              dem: 0, rep: 0, other: 0, totreg: g.totreg, pop: g.pop || 0, pop20: g.pop20 || 0, pop10: g.pop10 || 0, pop00: g.pop00 || 0, eth_white: g.eth_white || 0, eth_black: g.eth_black || 0, eth_hisp: g.eth_hisp || 0, eth_asian: g.eth_asian || 0, eth_native: g.eth_native || 0, eth_pacific: g.eth_pacific || 0, edu_total: g.edu_total || 0, age_total: g.age_total || 0, lang_total: g.lang_total || 0, eng_vw: g.eng_vw || 0, eng_lvw: g.eng_lvw || 0, lang_english: g.lang_english || 0, lang_spanish: g.lang_spanish || 0, lang_indo: g.lang_indo || 0, lang_asian: g.lang_asian || 0, lang_other: g.lang_other || 0, orig_total: g.orig_total || 0, orig_instate: g.orig_instate || 0, orig_outstate: g.orig_outstate || 0, orig_foreign: g.orig_foreign || 0, cit_total: g.cit_total || 0, cit_yes: g.cit_yes || 0, age_sum: g.age_sum || 0, age_avg: g.age_total > 0 ? g.age_sum / g.age_total : 0, age_u18: g.age_u18 || 0, age_18_29: g.age_18_29 || 0, age_30_44: g.age_30_44 || 0, age_45_64: g.age_45_64 || 0, age_65: g.age_65 || 0, edu_coll: g.edu_coll || 0, edu_noncoll: g.edu_noncoll || 0, edu_lths: g.edu_lths || 0, edu_hs: g.edu_hs || 0, edu_somecol: g.edu_somecol || 0, edu_bach: g.edu_bach || 0, edu_grad: g.edu_grad || 0, inc_total: g.inc_total || 0, inc_lt50k: g.inc_lt50k || 0, inc_50_100k: g.inc_50_100k || 0, inc_gt100k: g.inc_gt100k || 0, inc_lt30k: g.inc_lt30k || 0, inc_30_50k: g.inc_30_50k || 0, inc_50_75k: g.inc_50_75k || 0, inc_75_100k: g.inc_75_100k || 0, inc_100_200k: g.inc_100_200k || 0, inc_gt200k: g.inc_gt200k || 0, inc_med: g.inc_med || 0, inc_medw: g.inc_med > 0 ? g.inc_med * (g.inc_total || 0) : 0, inc_medhh: g.inc_med > 0 ? (g.inc_total || 0) : 0, vap: g.vap || 0, vap20: g.vap20 || 0, vap22: g.vap22 || 0, cvap: g.cvap || 0,
-              pop20Adjusted: g.pop20Adjusted || 0,
-              atomFile: g.atomFile, atomCount: g.atomCount, _id: g.county + '|' + g.precinct,
-              margin: null,
-              districtId: null,
-              bbox: b,
-              bboxArea: (b[2] - b[0]) * (b[3] - b[1]),
-            };
-            for (var sk = 0; sk < SHIFT_KEYS.length; sk++) s[SHIFT_KEYS[sk]] = 0;
-            shapes.push(s);
-            shapesIndex[g.county + '|' + g.precinct] = s;
-            (shapesByCounty[g.county] = shapesByCounty[g.county] || []).push(s);
+            g.paths = [null, null, null];
+            g.rings = parseRings(g.d);
+            g.d = null;
+            g.fill = NODATA_FILL;
+            g.dem = 0; g.rep = 0; g.other = 0;
+            g.pop = g.pop || 0; g.pop20 = g.pop20 || 0; g.pop10 = g.pop10 || 0; g.pop00 = g.pop00 || 0;
+            g.eth_white = g.eth_white || 0; g.eth_black = g.eth_black || 0; g.eth_hisp = g.eth_hisp || 0;
+            g.eth_asian = g.eth_asian || 0; g.eth_native = g.eth_native || 0; g.eth_pacific = g.eth_pacific || 0;
+            g.edu_total = g.edu_total || 0; g.age_total = g.age_total || 0; g.lang_total = g.lang_total || 0;
+            g.eng_vw = g.eng_vw || 0; g.eng_lvw = g.eng_lvw || 0; g.lang_english = g.lang_english || 0;
+            g.lang_spanish = g.lang_spanish || 0; g.lang_indo = g.lang_indo || 0; g.lang_asian = g.lang_asian || 0;
+            g.lang_other = g.lang_other || 0; g.orig_total = g.orig_total || 0; g.orig_instate = g.orig_instate || 0;
+            g.orig_outstate = g.orig_outstate || 0; g.orig_foreign = g.orig_foreign || 0;
+            g.cit_total = g.cit_total || 0; g.cit_yes = g.cit_yes || 0; g.age_sum = g.age_sum || 0;
+            g.age_avg = g.age_total > 0 ? g.age_sum / g.age_total : 0;
+            g.age_u18 = g.age_u18 || 0; g.age_18_29 = g.age_18_29 || 0; g.age_30_44 = g.age_30_44 || 0;
+            g.age_45_64 = g.age_45_64 || 0; g.age_65 = g.age_65 || 0;
+            g.edu_coll = g.edu_coll || 0; g.edu_noncoll = g.edu_noncoll || 0; g.edu_lths = g.edu_lths || 0;
+            g.edu_hs = g.edu_hs || 0; g.edu_somecol = g.edu_somecol || 0; g.edu_bach = g.edu_bach || 0;
+            g.edu_grad = g.edu_grad || 0; g.inc_total = g.inc_total || 0;
+            g.inc_lt50k = g.inc_lt50k || 0; g.inc_50_100k = g.inc_50_100k || 0; g.inc_gt100k = g.inc_gt100k || 0;
+            g.inc_lt30k = g.inc_lt30k || 0; g.inc_30_50k = g.inc_30_50k || 0; g.inc_50_75k = g.inc_50_75k || 0;
+            g.inc_75_100k = g.inc_75_100k || 0; g.inc_100_200k = g.inc_100_200k || 0; g.inc_gt200k = g.inc_gt200k || 0;
+            g.inc_med = g.inc_med || 0;
+            g.inc_medw = g.inc_med > 0 ? g.inc_med * (g.inc_total || 0) : 0;
+            g.inc_medhh = g.inc_med > 0 ? (g.inc_total || 0) : 0;
+            g.vap = g.vap || 0; g.vap20 = g.vap20 || 0; g.vap22 = g.vap22 || 0; g.cvap = g.cvap || 0;
+            g.pop20Adjusted = g.pop20Adjusted || 0;
+            g._id = g.county + '|' + g.precinct;
+            g.margin = null;
+            g.districtId = null;
+            g.bboxArea = (b[2] - b[0]) * (b[3] - b[1]);
+            for (var sk = 0; sk < SHIFT_KEYS.length; sk++) g[SHIFT_KEYS[sk]] = 0;
+            shapes.push(g);
+            shapesIndex[g._id] = g;
+            (shapesByCounty[g.county] = shapesByCounty[g.county] || []).push(g);
           }
         }
         mapTotalsCache = null;
@@ -5827,7 +5873,8 @@ html, body {
     changed: function() { hasUnsavedChanges = true; },
     persist: saveDraft,
     refresh: recomputeDistricts,
-    geometryChanged: function() { markAllBordersDirty(); computeDistrictBorders(); draw(); },
+    // Merged block outlines are display-only, so district outlines (built from exact rings) stay valid.
+    geometryChanged: function() { draw(); },
     redraw: draw,
     zoom: function(b) { var cx=(b[0]+b[2])/2,cy=(b[1]+b[3])/2,w=Math.max(b[2]-b[0],2)*1.15,h=Math.max(b[3]-b[1],2)*1.15; var aspect=canvas.clientWidth/canvas.clientHeight; if(w/h>aspect)h=w/aspect;else w=h*aspect;view={x:cx-w/2,y:cy-h/2,w:w,h:h};draw(); }
   });

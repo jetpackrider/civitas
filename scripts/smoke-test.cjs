@@ -6,13 +6,30 @@ const { _electron: electron } = require('playwright');
 const { prepare } = require('./test-environment.cjs');
 
 (async () => {
-  const executablePath = process.argv[2];
+  const archiveMode = process.argv.includes('--archive');
+  const executablePath = process.argv.slice(2).find(arg => arg !== '--archive');
+  assert.ok(!archiveMode || !executablePath, 'Choose archive fixture or packaged executable, not both.');
   const { profile, env, cleanup } = await prepare('smoke', !!executablePath);
   let app;
   try {
+    let appPath = '.';
+    if (archiveMode) {
+      // Exercise actual ASAR reads through the app protocol, including worker fetches,
+      // without needing a statewide dataset or opening a visible packaged app.
+      const root = path.resolve(__dirname, '..');
+      const stage = path.join(path.dirname(profile), 'archive-app');
+      await fs.mkdir(stage);
+      for (const name of ['main.js', 'package.json']) await fs.copyFile(path.join(root, name), path.join(stage, name));
+      await fs.rename(env.CIVITAS_TEST_WEB_ROOT, path.join(stage, 'web'));
+      await fs.cp(path.join(root, 'node_modules/polygon-clipping'), path.join(stage, 'node_modules/polygon-clipping'), { recursive: true });
+      appPath = path.join(path.dirname(profile), 'app.asar');
+      await require('@electron/asar').createPackage(stage, appPath);
+      await fs.rm(stage, { recursive: true });
+      delete env.CIVITAS_TEST_WEB_ROOT;
+    }
     app = await electron.launch({
       ...(executablePath ? { executablePath: path.resolve(executablePath) } : {}),
-      args: [...(executablePath ? [] : ['.']), `--user-data-dir=${profile}`],
+      args: [...(executablePath ? [] : [appPath]), `--user-data-dir=${profile}`],
       env,
       timeout: 60000,
     });
@@ -20,6 +37,7 @@ const { prepare } = require('./test-environment.cjs');
     const errors = [];
     app.context().setDefaultTimeout(30000);
     const page = await app.firstWindow();
+    if (archiveMode) assert.equal(await app.evaluate(({ app }) => app.getAppPath()), appPath);
     page.on('pageerror', error => errors.push(error.message));
     await page.waitForLoadState('domcontentloaded');
     assert.equal(new URL(page.url()).origin, 'null'); // custom scheme
@@ -74,6 +92,27 @@ const { prepare } = require('./test-environment.cjs');
       await page.locator('#race-list button').first().waitFor({ state: 'attached', timeout: 90000 });
       await page.locator('#loading').waitFor({ state: 'hidden', timeout: 90000 });
       assert.ok(await page.locator('#race-list button').count() > 0);
+      if (archiveMode) {
+        const split = await page.evaluate(async () => {
+          await CivitasApp.ready();
+          const e = CivitasApp.editor;
+          const parent = e.parents.find(p => p.county === 'Alpine' && p.pop20 > 10);
+          if (!parent) throw new Error('Missing archive block fixture');
+          e.apply(parent, 'paint', 'unit', 1, {}); e.endStroke();
+          await e.openBlocks(parent);
+          if (!e.opened) throw new Error(document.getElementById('editor-status').textContent);
+          window.archiveChild = parent._children.find(a => a.pop20 > 0 && a.pop20 < parent.pop20);
+          if (!archiveChild) throw new Error('Archive worker did not load populated blocks');
+          e.apply(archiveChild, 'paint', 'block', 2, {}); e.endStroke();
+          return { child: archiveChild.pop20, district: CivitasApp.getStats().districts[2].pop20 };
+        });
+        assert.equal(split.district, split.child);
+        await page.click('#block-done');
+        await page.click('#editor-undo');
+        await page.waitForFunction(() => archiveChild.districtId === 1);
+        await page.click('#editor-redo');
+        await page.waitForFunction(() => archiveChild.districtId === 2);
+      }
       await page.fill('#map-name-input', `Desktop smoke ${geography}`);
       await page.locator('#map-name-input').press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
       assert.equal(await page.locator('#map-name-input').evaluate(el => el.selectionEnd - el.selectionStart), `Desktop smoke ${geography}`.length);
@@ -113,7 +152,7 @@ const { prepare } = require('./test-environment.cjs');
       assert.ok(saved.includes('Desktop smoke precinct') && saved.includes('Desktop smoke blockgroup'));
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: native menus, select-all, both geographies and saved-map reopen; macOS also checks Dock activation.');
+    console.log(`PASS: ${archiveMode ? 'ASAR assets, block worker, split totals and undo/redo, ' : ''}native menus, select-all, both geographies and saved-map reopen; macOS also checks Dock activation.`);
   } catch (error) {
     console.error(error);
     process.exitCode = 1;

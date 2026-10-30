@@ -16,12 +16,15 @@
     "dist:mac:arm64": "electron-builder --mac --arm64 --publish never",
     "dist:mac:x64": "electron-builder --mac --x64 --publish never",
     "test:smoke": "node scripts/smoke-test.cjs",
+    "test:archive": "node scripts/smoke-test.cjs --archive",
     "test": "node scripts/unit-tests.cjs",
     "test:editor": "node scripts/editor-smoke.cjs",
     "test:pointer": "node scripts/pointer-smoke.cjs",
+    "test:sidebar": "node scripts/sidebar-smoke.cjs",
     "test:security": "node scripts/security-audit.cjs",
     "data:fetch": "node scripts/python.cjs scripts/fetch-geodata.py",
     "data:build": "node scripts/python.cjs scripts/build-block-data.py --resume",
+    "data:repair:geometry": "node scripts/python.cjs scripts/repair-block-geometry.py --resume",
     "data:validate": "node scripts/data.cjs validate",
     "dist:win": "electron-builder --win --x64 --publish never",
     "setup": "node scripts/setup.cjs",
@@ -32,7 +35,8 @@
     "data:check": "node scripts/data.cjs check",
     "test:fixture:refresh": "node scripts/python.cjs scripts/refresh-test-fixture.py",
     "release:checksums": "node scripts/release-checksums.cjs",
-    "benchmark:render": "node scripts/render-benchmark.cjs"
+    "benchmark:render": "node scripts/render-benchmark.cjs",
+    "benchmark:city": "node scripts/city-benchmark.cjs"
   },
   "devDependencies": {
     "electron": "43.7.9",
@@ -45,16 +49,8 @@
     "asar": true,
     "files": [
       "main.js",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "web",
-        "to": "web",
-        "filter": [
-          "**/*"
-        ]
-      }
+      "package.json",
+      "web/**/*"
     ],
     "mac": {
       "category": "public.app-category.education",
